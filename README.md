@@ -25,16 +25,7 @@ A professional interactive web application for analyzing and visualizing the fre
 - Phase response (degrees)
 - dB vs Phase (Nyquist-style)
 
-✅ **Interactive Controls**
-- Selectable plots (show/hide any subplot)
-- Custom cutoff frequencies
-- Adjustable frequency sweep range
-- Linear or logarithmic x-axis scale
-
-✅ **Data Export**
-- Interactive frequency response table (ω = 1 to 100 rad/s)
-- CSV download for all data
-- PNG download of plots
+ 
 
 ✅ **Educational Content**
 - Step-by-step filter derivation
@@ -69,70 +60,7 @@ Phase:     ∠H(jω) = phase shift in degrees
 At cutoff frequency: |H(jω)| = 1/√2 = 0.70711
 This equals −3.01 dB = half power point
 ```
-
----
-
-## 🚀 Deployment Instructions
-
-### **Option 1: Deploy to Streamlit Cloud (RECOMMENDED — FREE)**
-
-#### Prerequisites
-- GitHub account (free at github.com)
-- Streamlit account (free at streamlit.io/cloud)
-
-#### Steps
-
-**1. Create GitHub Repository**
-```
-1. Go to github.com
-2. Click "+" → "New repository"
-3. Name: MEE316-Filter-Lab
-4. Click "Create repository"
-```
-
-**2. Upload Files to GitHub**
-```
-1. Click "Add file" → "Upload files"
-2. Upload these three files:
-   - app.py (rename from bandpass_streamlit.py)
-   - requirements.txt
-   - README.md (this file)
-3. Click "Commit changes"
-```
-
-**3. Deploy on Streamlit Cloud**
-```
-1. Go to streamlit.io/cloud
-2. Click "New app"
-3. Select:
-   - GitHub repo: MEE316-Filter-Lab
-   - Branch: main
-   - File: app.py
-4. Click "Deploy"
-```
-
-**Your app is LIVE!** 🎉
-```
-https://meee316-filter-lab.streamlit.app
-```
-
-Share this link with your lecturer!
-
----
-
-### **Option 2: Run Locally (For Testing)**
-
-```bash
-# Install Python packages
-pip install -r requirements.txt
-
-# Run the app
-streamlit run app.py
-
-# App opens at: http://localhost:8501
-```
-
----
+ 
 
 ## 📁 File Structure
 
@@ -195,46 +123,8 @@ Shows how much each frequency gets delayed:
 - **Deployment**: Streamlit Cloud (free hosting)
 
 ---
-
-## 📊 Example Use Cases
-
-**1. Design a noise filter**
-```
-Want to remove frequencies above 10 rad/s?
-→ Set LPF with Wc = 10
-→ Higher order = sharper cutoff = better filtering
-```
-
-**2. Compare filter types**
-```
-Same cutoff, different filter?
-→ Switch between LPF/HPF/BPF/BSF
-→ See how each responds
-```
-
-**3. Understand phase delay**
-```
-Why does my signal get delayed?
-→ Check Phase Response plot
-→ Higher frequencies shift more
-```
-
-**4. Homework/Report**
-```
-Need to show filter analysis?
-→ Download CSV table
-→ Download PNG plot
-→ Include in report
-```
-
----
-
-## 📝 What to Tell Your Lecturer
-
-> *"I built an interactive web app using Python and Streamlit that analyzes all four filter types with multiple orders. The app includes magnitude response in both linear and dB scales, phase response, a multi-dB reference system, and exportable data. Features include step-by-step derivations, cutoff frequency analysis, and the −3dB rule explanation. It's deployed to the cloud so anyone can access it with a link."*
-
----
-
+ 
+ 
 ## 🎯 Learning Outcomes
 
 After using this lab, you should understand:
@@ -247,43 +137,4 @@ After using this lab, you should understand:
 ✅ Real-world filter design tradeoffs
 
 ---
-
-## 📞 Support
-
-**Having issues?**
-1. Refresh the browser (Ctrl+R)
-2. Check that all files are uploaded to GitHub
-3. Check `requirements.txt` has all dependencies
-4. Verify `app.py` filename (not `bandpass_streamlit.py`)
-
----
-
-## 📈 Future Enhancements
-
-Potential additions:
-- Chebyshev filter type (passband ripple)
-- Butterworth filter comparison
-- Step response and impulse response
-- Group delay visualization
-- Pole-zero diagram (s-plane)
-- Filter synthesis (design tool)
-
----
-
-## 📄 License
-
-Educational project for MEE 316 course.
-
----
-
-**Built with ❤️ for Network Analysis & Synthesis**
-
-*Last updated: April 2026*
-
----
-
-### Quick Links
-- **Streamlit Docs**: https://docs.streamlit.io
-- **Plotly Docs**: https://plotly.com/python/
-- **NumPy Docs**: https://numpy.org/doc/
-- **MEE 316 Course**: Network Analysis & Synthesis
+ 
