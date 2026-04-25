@@ -343,6 +343,102 @@ For LPF/HPF: phase shifts 45°/decade near cutoff. BPF shifts 90° at center fre
 
 st.markdown("---")
 
+# Calculate data BEFORE tabs
+omega_plot = np.linspace(w_min, w_max, 2000)
+mag_plot   = Hfn_mag(omega_plot)
+db_plot    = np.clip(to_dB(mag_plot), -80, 5)
+phase_plot = Hfn_phase(omega_plot)
+xtype      = "log" if plot_scale == "Log" else "linear"
+
+# Create full figure for "All Plots" tab
+fig = make_subplots(
+    rows=2, cols=2,
+    subplot_titles=(
+        f"{sname} {order_label} — Linear |H(jω)|",
+        f"{sname} {order_label} — Bode Plot (Magnitude)",
+        f"{sname} {order_label} — Phase Response",
+        f"dB vs Phase (Nyquist-style)"
+    ),
+    specs=[[{"secondary_y": False}, {"secondary_y": False}],
+           [{"secondary_y": False}, {"secondary_y": False}]],
+    vertical_spacing=0.12, horizontal_spacing=0.1
+)
+
+# Add traces to full figure
+if show_linear:
+    fig.add_trace(go.Scatter(
+        x=omega_plot, y=mag_plot, name="|H(jω)|",
+        line=dict(color=ac, width=2.5),
+        hovertemplate="ω=%{x:.2f}<br>|H|=%{y:.5f}<extra></extra>"
+    ), row=1, col=1)
+
+if show_bode:
+    fig.add_trace(go.Scatter(
+        x=omega_plot, y=db_plot, name="dB",
+        line=dict(color=ac, width=2.5),
+        hovertemplate="ω=%{x:.2f}<br>dB=%{y:.3f}<extra></extra>"
+    ), row=1, col=2)
+
+if show_phase:
+    fig.add_trace(go.Scatter(
+        x=omega_plot, y=phase_plot, name="Phase",
+        line=dict(color="#f59e0b", width=2.5),
+        hovertemplate="ω=%{x:.2f}<br>Phase=%{y:.1f}°<extra></extra>"
+    ), row=2, col=1)
+
+if show_nyquist:
+    fig.add_trace(go.Scatter(
+        x=phase_plot, y=db_plot, name="dB vs Phase",
+        mode="lines", line=dict(color=ac, width=2.5),
+        hovertemplate="Phase=%{x:.1f}°<br>dB=%{y:.3f}<extra></extra>"
+    ), row=2, col=2)
+
+# Add reference lines
+for xval in ref_x:
+    fig.add_vline(x=xval, line_dash="dot", line_color="#f59e0b", line_width=1.5, row=1, col=1)  # type: ignore
+    fig.add_vline(x=xval, line_dash="dot", line_color="#f59e0b", line_width=1.5, row=1, col=2)  # type: ignore
+    fig.add_vline(x=xval, line_dash="dot", line_color="#f59e0b", line_width=1.5, row=2, col=1)  # type: ignore
+
+# Add dB reference lines
+db_refs_to_show = []
+if show_db_minus1:
+    db_refs_to_show.append((-1, "−1 dB", "#94a3b8"))
+if show_db_minus3:
+    db_refs_to_show.append((-3, "−3 dB (half power)", "#f87171"))
+if show_db_minus6:
+    db_refs_to_show.append((-6, "−6 dB", "#fbbf24"))
+if show_db_minus10:
+    db_refs_to_show.append((-10, "−10 dB", "#60a5fa"))
+if show_db_minus20:
+    db_refs_to_show.append((-20, "−20 dB", "#818cf8"))
+
+for db_val, label, color in db_refs_to_show:
+    fig.add_hline(
+        y=db_val, line_dash="dash", line_color=color, line_width=1.2,
+        row=1, col=2,  # type: ignore
+        annotation_text=label, annotation_font_color=color, annotation_font_size=9
+    )
+
+fig.add_hline(y=1/sqrt2, line_dash="dash", line_color="#f87171", line_width=1.2, row=1, col=1,  # type: ignore
+              annotation_text="−3dB (0.707)", annotation_font_color="#f87171")
+
+fig.add_hline(y=0, line_dash="dash", line_color="#64748b", line_width=0.8, row=2, col=1)  # type: ignore
+
+fig.update_layout(
+    height=780, paper_bgcolor="#0a0f1e", plot_bgcolor="#0f172a",
+    font=dict(color="#e2e8f0", family="Segoe UI"), showlegend=True,
+    legend=dict(bgcolor="#0f172a", bordercolor="#1e3a5f", borderwidth=1, x=1.02, y=1),
+    margin=dict(t=60, b=40, r=180)
+)
+fig.update_xaxes(title_text="ω (rad/s)", type=xtype, gridcolor="#1e293b", zerolinecolor="#1e3a5f", autorange=True, row=1, col=1)
+fig.update_xaxes(title_text="ω (rad/s)", type=xtype, gridcolor="#1e293b", zerolinecolor="#1e3a5f", autorange=True, row=1, col=2)
+fig.update_xaxes(title_text="ω (rad/s)", type=xtype, gridcolor="#1e293b", zerolinecolor="#1e3a5f", autorange=True, row=2, col=1)
+fig.update_xaxes(title_text="Phase (degrees)", gridcolor="#1e293b", zerolinecolor="#1e3a5f", autorange=True, row=2, col=2)
+fig.update_yaxes(title_text="|H(jω)|", gridcolor="#1e293b", zerolinecolor="#1e3a5f", autorange=True, row=1, col=1)
+fig.update_yaxes(title_text="dB", gridcolor="#1e293b", zerolinecolor="#1e3a5f", autorange=True, row=1, col=2)
+fig.update_yaxes(title_text="Phase (°)", gridcolor="#1e293b", zerolinecolor="#1e3a5f", autorange=True, row=2, col=1)
+fig.update_yaxes(title_text="dB", gridcolor="#1e293b", zerolinecolor="#1e3a5f", autorange=True, row=2, col=2)
+
 st.markdown('<div class="section-title">Frequency Response Plots — Magnitude & Phase</div>', unsafe_allow_html=True)
 
 # Add tabs for better mobile viewing
