@@ -5,18 +5,17 @@
 #  Built with: Python · NumPy · Plotly · Streamlit
 #
 #  HOW TO RUN:
-#    python -m streamlit run bandpass_streamlit.py
+#    python -m streamlit run app.py
 # =============================================================================
 
 import numpy as np
 import pandas as pd
 import streamlit as st
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 
 st.set_page_config(page_title="MEE 316 · Filter Lab", page_icon="🎛️", layout="wide")
 
-# ── Custom CSS ─────────────────────────────────────────────────────────────────
+# ── Custom CSS ────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
     .stApp { background-color: #0a0f1e; color: #e2e8f0; font-family: 'Segoe UI', sans-serif; }
@@ -64,7 +63,7 @@ st.markdown("""
 
 
 # =============================================================================
-#  MATHEMATICS — Butterworth filters with phase response
+#  MATHEMATICS
 # =============================================================================
 
 sqrt2 = np.sqrt(2)
@@ -73,14 +72,12 @@ def butterworth_LPF(w, wc, n):
     return 1.0 / np.sqrt(1 + (w / wc) ** (2 * n))
 
 def butterworth_LPF_phase(w, wc, n):
-    """Phase in degrees: -n * arctan(w/Wc)"""
     return -n * np.degrees(np.arctan(w / wc))
 
 def butterworth_HPF(w, wc, n):
     return (w / wc) ** n / np.sqrt(1 + (w / wc) ** (2 * n))
 
 def butterworth_HPF_phase(w, wc, n):
-    """Phase in degrees: 90 - n * arctan(Wc/w)"""
     w = np.asarray(w, dtype=float)
     return 90 - n * np.degrees(np.arctan(wc / np.where(w == 0, 1e-12, w)))
 
@@ -92,13 +89,10 @@ def butterworth_BPF(w, wc1, wc2, n):
     return 1.0 / np.sqrt(1 + u ** (2 * n))
 
 def butterworth_BPF_phase(w, wc1, wc2, n):
-    """BPF phase: numerator phase - denominator phase"""
     bw   = wc2 - wc1
     prod = wc1 * wc2
     w    = np.asarray(w, dtype=float)
-    # Simplified: phase goes from 0 at low freq through 90° at center to 180° at high freq
-    numerator_phase = np.degrees(np.arctan(bw * w / (prod - w**2 + 1e-12)))
-    return numerator_phase
+    return np.degrees(np.arctan(bw * w / (prod - w**2 + 1e-12)))
 
 def butterworth_BSF(w, wc1, wc2, n):
     bw   = wc2 - wc1
@@ -108,12 +102,10 @@ def butterworth_BSF(w, wc1, wc2, n):
     return u**n / np.sqrt(1 + u ** (2 * n))
 
 def butterworth_BSF_phase(w, wc1, wc2, n):
-    """BSF phase: inverse of BPF"""
     bw   = wc2 - wc1
     prod = wc1 * wc2
     w    = np.asarray(w, dtype=float)
-    numerator_phase = np.degrees(np.arctan((prod - w**2) / (bw * w + 1e-12)))
-    return numerator_phase
+    return np.degrees(np.arctan((prod - w**2) / (bw * w + 1e-12)))
 
 def to_dB(mag):
     return 20 * np.log10(np.where(mag > 0, mag, 1e-12))
@@ -172,15 +164,7 @@ with st.sidebar:
     plot_scale = st.radio("X-axis scale", ["Linear", "Log"], horizontal=True)
 
     st.markdown("---")
-    st.markdown("**⑤ Select Plots to Display**")
-    show_linear = st.checkbox("Linear Magnitude", value=True)
-    show_bode = st.checkbox("Bode (dB)", value=True)
-    show_phase = st.checkbox("Phase Response", value=True)
-    show_nyquist = st.checkbox("dB vs Phase", value=True)
-
-    st.markdown("---")
-    st.markdown("**⑥ Multi-dB Reference Lines**")
-    st.write("<small>Check which dB levels to show:</small>", unsafe_allow_html=True)
+    st.markdown("**⑤ Multi-dB Reference Lines**")
     show_db_minus1 = st.checkbox("−1 dB", value=True)
     show_db_minus3 = st.checkbox("−3 dB (half power)", value=True)
     show_db_minus6 = st.checkbox("−6 dB", value=True)
@@ -211,32 +195,18 @@ sname = filter_type.split("—")[0].strip()
 if filter_type == "LPF — Low-Pass":
     Hfn_mag   = lambda w: butterworth_LPF(w, wc, order_n)
     Hfn_phase = lambda w: butterworth_LPF_phase(w, wc, order_n)
-    tf        = f"H(s) = 1 / (Butterworth {order_label} LPF, Wc={wc})"
-    mag_eq    = f"|H(jω)| = 1 / √(1 + (ω/{wc})^{2*order_n})"
-    sub_rule  = "s → s/Wc"
     ref_x     = [wc]
 elif filter_type == "HPF — High-Pass":
     Hfn_mag   = lambda w: butterworth_HPF(w, wc, order_n)
     Hfn_phase = lambda w: butterworth_HPF_phase(w, wc, order_n)
-    tf        = f"H(s) = {order_label} HPF, Wc={wc}"
-    mag_eq    = f"|H(jω)| = (ω/{wc})^{order_n} / √(1 + (ω/{wc})^{2*order_n})"
-    sub_rule  = "s → Wc/s"
     ref_x     = [wc]
 elif filter_type == "BPF — Band-Pass":
-    bw, prod = wc2 - wc1, wc1 * wc2
     Hfn_mag   = lambda w: butterworth_BPF(w, wc1, wc2, order_n)
     Hfn_phase = lambda w: butterworth_BPF_phase(w, wc1, wc2, order_n)
-    tf        = f"H(s) = {order_label} BPF | Wc1={wc1}, Wc2={wc2}"
-    mag_eq    = f"|H(jω)| = 1 / √(1 + u^{2*order_n})  [u = |(ω²−{prod:.0f})|/({bw:.0f}ω)]"
-    sub_rule  = f"s → (s²+{prod:.0f}) / ({bw:.0f}s)"
     ref_x     = [wc1, wc2]
 else:  # BSF
-    bw, prod = wc2 - wc1, wc1 * wc2
     Hfn_mag   = lambda w: butterworth_BSF(w, wc1, wc2, order_n)
     Hfn_phase = lambda w: butterworth_BSF_phase(w, wc1, wc2, order_n)
-    tf        = f"H(s) = {order_label} BSF | Wc1={wc1}, Wc2={wc2}"
-    mag_eq    = f"|H(jω)| = u^{order_n} / √(1 + u^{2*order_n})  [u = |(ω²−{prod:.0f})|/({bw:.0f}ω)]"
-    sub_rule  = f"s → {bw:.0f}s / (s²+{prod:.0f})"
     ref_x     = [wc1, wc2]
 
 
@@ -249,86 +219,42 @@ st.markdown(f"""
 <h1>🎛️ MEE 316 — Filter Frequency Response Lab</h1>
 <p>Network Analysis & Synthesis &nbsp;·&nbsp;
 NLPF: H(s) = 1/(s+1) &nbsp;·&nbsp;
-Active: <b style='color:#22d3ee'>{filter_type} · {order_label}</b> &nbsp;·&nbsp;
-dB = 20·log₁₀|H(jω)| &nbsp;·&nbsp; Phase in degrees</p>
+Active: <b style='color:#22d3ee'>{filter_type} · {order_label}</b></p>
 </div>
 """, unsafe_allow_html=True)
 
+# Filter type cards
 st.markdown('<div class="section-title">Filter Types</div>', unsafe_allow_html=True)
 cols = st.columns(4)
 cards_info = [
-    ("LPF — Low-Pass",  "#22d3ee", "LPF", "s → s/Wc",          "Passes: LOW"),
-    ("HPF — High-Pass", "#22c55e", "HPF", "s → Wc/s",           "Passes: HIGH"),
-    ("BPF — Band-Pass", "#a78bfa", "BPF", "s → (s²+W₁W₂)/BW·s","Passes: W1-W2"),
-    ("BSF — Band-Stop", "#fb923c", "BSF", "s → BW·s/(s²+W₁W₂)","Blocks: W1-W2"),
+    ("LPF — Low-Pass",  "#22d3ee", "LPF", "Passes: LOW"),
+    ("HPF — High-Pass", "#22c55e", "HPF", "Passes: HIGH"),
+    ("BPF — Band-Pass", "#a78bfa", "BPF", "Passes: W1-W2"),
+    ("BSF — Band-Stop", "#fb923c", "BSF", "Blocks: W1-W2"),
 ]
-for col, (fname, color, abbr, sub, desc) in zip(cols, cards_info):
+for col, (fname, color, abbr, desc) in zip(cols, cards_info):
     is_active = fname == filter_type
     bg = f"background:{'#0e2a3a' if is_active else '#0f172a'}"
     border = f"border:2px solid {color if is_active else '#1e3a5f'}"
     with col:
         st.markdown(f"""
-        <div style='{bg};{border};border-radius:10px;padding:14px;text-align:center;'>
-        <div style='font-size:20px;font-weight:800;color:{color};'>{abbr}</div>
-        <div style='font-size:10px;color:#64748b;margin:4px 0;'>{sub}</div>
-        <div style='font-size:11px;color:#94a3b8;'>{desc}</div>
-        {'<div style="margin-top:6px;font-size:10px;background:'+color+';color:#000;border-radius:10px;padding:1px 8px;">ACTIVE</div>' if is_active else ''}
+        <div style='{bg};{border};border-radius:10px;padding:12px;text-align:center;'>
+        <div style='font-size:16px;font-weight:800;color:{color};'>{abbr}</div>
+        <div style='font-size:10px;color:#94a3b8;margin:6px 0;'>{desc}</div>
+        {'<div style="margin-top:4px;font-size:9px;background:'+color+';color:#000;border-radius:10px;padding:1px 8px;">✅ ACTIVE</div>' if is_active else ''}
         </div>""", unsafe_allow_html=True)
 
 st.markdown("&nbsp;")
-badge_html = '<div style="margin:8px 0;"><span style="color:#94a3b8;font-size:13px;">Order: </span>'
-for opt in ["1st", "2nd", "4th", "6th", "8th"]:
-    opt_n = int(opt.replace("st", "").replace("nd", "").replace("rd", "").replace("th", ""))
-    badge_html += f"<span style='display:inline-block;background:#0e7490;color:#fff;border-radius:20px;padding:3px 12px;font-size:12px;margin:2px;'>{'✅ ' if order_n==opt_n else ''}{opt}</span>"
-badge_html += "</div>"
-st.markdown(badge_html, unsafe_allow_html=True)
+st.markdown(f"<small style='color:#94a3b8;'>Order: **{order_label}**</small>", unsafe_allow_html=True)
 st.markdown("---")
 
-st.markdown('<div class="section-title">Transfer Function & Formula</div>', unsafe_allow_html=True)
-col_a, col_b = st.columns(2)
-with col_a:
-    st.markdown(f"""
-    <div class='info-box'>
-    <b style='color:#f59e0b;'>NLPF (Starting Point)</b><br>
-    H(s) = 1 / (s + 1)<br><br>
-    <b style='color:#f59e0b;'>Frequency Substitution ({sname})</b><br>
-    {sub_rule}<br><br>
-    <b style='color:#f59e0b;'>Resulting {sname} ({order_label})</b><br>
-    {tf}
-    </div>""", unsafe_allow_html=True)
-with col_b:
-    st.markdown(f"""
-    <div class='info-box'>
-    <b style='color:#22d3ee;'>Magnitude Formula</b><br>
-    {mag_eq}<br><br>
-    <b style='color:#22d3ee;'>dB Formula</b><br>
-    |H(jω)|_dB = 20 × log₁₀( |H(jω)| )<br><br>
-    <b style='color:#22d3ee;'>Phase Formula</b><br>
-    ∠H(jω) = phase in degrees
-    </div>""", unsafe_allow_html=True)
-
-st.markdown("---")
-
-with st.expander(f"📐 Step-by-Step Derivation — {sname} {order_label}", expanded=False):
-    st.markdown(f"""
-    <div class='step-box'><b style='color:#22c55e;'>Step 1 — NLPF</b><br>H(s) = 1/(s+1)</div>
-    <div class='step-box'><b style='color:#22c55e;'>Step 2 — {sname} substitution</b><br>{sub_rule}</div>
-    <div class='step-box'><b style='color:#22c55e;'>Step 3 — Transfer Function</b><br>{tf}</div>
-    <div class='step-box'><b style='color:#22c55e;'>Step 4 — Frequency Response</b><br>{mag_eq}</div>
-    <div class='step-box'><b style='color:#22c55e;'>Step 5 — Phase & dB</b><br>
-    Phase = ∠H(jω) in degrees &nbsp;|&nbsp; dB = 20·log₁₀(|H(jω)|)</div>
-    """, unsafe_allow_html=True)
-
-st.markdown("---")
-
+# Metrics
 st.markdown('<div class="section-title">Key Values at Cutoff</div>', unsafe_allow_html=True)
 mcols = st.columns(len(ref_x) + 2)
 for i, wr in enumerate(ref_x):
     mag = float(Hfn_mag(np.array([float(wr)]))[0])
-    phase = float(Hfn_phase(np.array([float(wr)]))[0])
     with mcols[i]:
         st.metric(f"|H| at ω={wr}", f"{mag:.5f}", f"{to_dB(mag):.2f} dB")
-
 with mcols[len(ref_x)]:
     st.metric("−3 dB ref", "0.70711", "= 1/√2")
 with mcols[len(ref_x)+1]:
@@ -337,264 +263,113 @@ with mcols[len(ref_x)+1]:
 
 st.markdown("""
 <div class='warn-box'>
-⚠️ <b>−3 dB Rule:</b> At cutoff, |H(jω)| = 0.70711 (half power). Higher orders have sharper roll-off.
-For LPF/HPF: phase shifts 45°/decade near cutoff. BPF shifts 90° at center frequency.
+⚠️ <b>−3 dB Rule:</b> At cutoff, |H(jω)| = 0.70711 (half power). 
+Higher orders have sharper roll-off. Phase shifts 45°/decade for LPF/HPF near cutoff.
 </div>""", unsafe_allow_html=True)
 
 st.markdown("---")
 
-# Calculate data BEFORE tabs
+# ===== GENERATE ALL DATA =====
 omega_plot = np.linspace(w_min, w_max, 2000)
 mag_plot   = Hfn_mag(omega_plot)
 db_plot    = np.clip(to_dB(mag_plot), -80, 5)
 phase_plot = Hfn_phase(omega_plot)
 xtype      = "log" if plot_scale == "Log" else "linear"
 
-# Create full figure for "All Plots" tab
-fig = make_subplots(
-    rows=2, cols=2,
-    subplot_titles=(
-        f"{sname} {order_label} — Linear |H(jω)|",
-        f"{sname} {order_label} — Bode Plot (Magnitude)",
-        f"{sname} {order_label} — Phase Response",
-        f"dB vs Phase (Nyquist-style)"
-    ),
-    specs=[[{"secondary_y": False}, {"secondary_y": False}],
-           [{"secondary_y": False}, {"secondary_y": False}]],
-    vertical_spacing=0.12, horizontal_spacing=0.1
-)
+st.markdown('<div class="section-title">Frequency Response Plots</div>', unsafe_allow_html=True)
+st.info("💡 **Mobile tip:** Scroll down to see all 4 graphs")
 
-# Add traces to full figure
-if show_linear:
-    fig.add_trace(go.Scatter(
-        x=omega_plot, y=mag_plot, name="|H(jω)|",
-        line=dict(color=ac, width=2.5),
-        hovertemplate="ω=%{x:.2f}<br>|H|=%{y:.5f}<extra></extra>"
-    ), row=1, col=1)
+# Create 4 separate figures
+config = {
+    "responsive": True, "displayModeBar": True, "displaylogo": False,
+    "modeBarButtonsToRemove": ["lasso2d", "select2d"]
+}
 
-if show_bode:
-    fig.add_trace(go.Scatter(
-        x=omega_plot, y=db_plot, name="dB",
-        line=dict(color=ac, width=2.5),
-        hovertemplate="ω=%{x:.2f}<br>dB=%{y:.3f}<extra></extra>"
-    ), row=1, col=2)
-
-if show_phase:
-    fig.add_trace(go.Scatter(
-        x=omega_plot, y=phase_plot, name="Phase",
-        line=dict(color="#f59e0b", width=2.5),
-        hovertemplate="ω=%{x:.2f}<br>Phase=%{y:.1f}°<extra></extra>"
-    ), row=2, col=1)
-
-if show_nyquist:
-    fig.add_trace(go.Scatter(
-        x=phase_plot, y=db_plot, name="dB vs Phase",
-        mode="lines", line=dict(color=ac, width=2.5),
-        hovertemplate="Phase=%{x:.1f}°<br>dB=%{y:.3f}<extra></extra>"
-    ), row=2, col=2)
-
-# Add reference lines
+# Plot 1: Linear Magnitude
+fig1 = go.Figure()
+fig1.add_trace(go.Scatter(x=omega_plot, y=mag_plot, name="|H(jω)|",
+    line=dict(color=ac, width=2.5), hovertemplate="ω=%{x:.2f}<br>|H|=%{y:.5f}<extra></extra>"))
 for xval in ref_x:
-    fig.add_vline(x=xval, line_dash="dot", line_color="#f59e0b", line_width=1.5, row=1, col=1)  # type: ignore
-    fig.add_vline(x=xval, line_dash="dot", line_color="#f59e0b", line_width=1.5, row=1, col=2)  # type: ignore
-    fig.add_vline(x=xval, line_dash="dot", line_color="#f59e0b", line_width=1.5, row=2, col=1)  # type: ignore
-
-# Add dB reference lines
-db_refs_to_show = []
-if show_db_minus1:
-    db_refs_to_show.append((-1, "−1 dB", "#94a3b8"))
-if show_db_minus3:
-    db_refs_to_show.append((-3, "−3 dB (half power)", "#f87171"))
-if show_db_minus6:
-    db_refs_to_show.append((-6, "−6 dB", "#fbbf24"))
-if show_db_minus10:
-    db_refs_to_show.append((-10, "−10 dB", "#60a5fa"))
-if show_db_minus20:
-    db_refs_to_show.append((-20, "−20 dB", "#818cf8"))
-
-for db_val, label, color in db_refs_to_show:
-    fig.add_hline(
-        y=db_val, line_dash="dash", line_color=color, line_width=1.2,
-        row=1, col=2,  # type: ignore
-        annotation_text=label, annotation_font_color=color, annotation_font_size=9
-    )
-
-fig.add_hline(y=1/sqrt2, line_dash="dash", line_color="#f87171", line_width=1.2, row=1, col=1,  # type: ignore
-              annotation_text="−3dB (0.707)", annotation_font_color="#f87171")
-
-fig.add_hline(y=0, line_dash="dash", line_color="#64748b", line_width=0.8, row=2, col=1)  # type: ignore
-
-fig.update_layout(
-    height=780, paper_bgcolor="#0a0f1e", plot_bgcolor="#0f172a",
-    font=dict(color="#e2e8f0", family="Segoe UI"), showlegend=True,
-    legend=dict(bgcolor="#0f172a", bordercolor="#1e3a5f", borderwidth=1, x=1.02, y=1),
-    margin=dict(t=60, b=40, r=180)
+    fig1.add_vline(x=xval, line_dash="dot", line_color="#f59e0b", line_width=1.5)
+fig1.add_hline(y=1/sqrt2, line_dash="dash", line_color="#f87171", line_width=1.5,
+    annotation_text="−3dB (0.707)", annotation_font_color="#f87171")
+fig1.update_layout(
+    title=f"{sname} {order_label} — Linear Magnitude |H(jω)|",
+    xaxis_title="ω (rad/s)", yaxis_title="|H(jω)|",
+    height=400, paper_bgcolor="#0a0f1e", plot_bgcolor="#0f172a",
+    font=dict(color="#e2e8f0"), xaxis_type=xtype, xaxis=dict(gridcolor="#1e293b"),
+    yaxis=dict(gridcolor="#1e293b"), hovermode="x unified"
 )
-fig.update_xaxes(title_text="ω (rad/s)", type=xtype, gridcolor="#1e293b", zerolinecolor="#1e3a5f", autorange=True, row=1, col=1)
-fig.update_xaxes(title_text="ω (rad/s)", type=xtype, gridcolor="#1e293b", zerolinecolor="#1e3a5f", autorange=True, row=1, col=2)
-fig.update_xaxes(title_text="ω (rad/s)", type=xtype, gridcolor="#1e293b", zerolinecolor="#1e3a5f", autorange=True, row=2, col=1)
-fig.update_xaxes(title_text="Phase (degrees)", gridcolor="#1e293b", zerolinecolor="#1e3a5f", autorange=True, row=2, col=2)
-fig.update_yaxes(title_text="|H(jω)|", gridcolor="#1e293b", zerolinecolor="#1e3a5f", autorange=True, row=1, col=1)
-fig.update_yaxes(title_text="dB", gridcolor="#1e293b", zerolinecolor="#1e3a5f", autorange=True, row=1, col=2)
-fig.update_yaxes(title_text="Phase (°)", gridcolor="#1e293b", zerolinecolor="#1e3a5f", autorange=True, row=2, col=1)
-fig.update_yaxes(title_text="dB", gridcolor="#1e293b", zerolinecolor="#1e3a5f", autorange=True, row=2, col=2)
 
-st.markdown('<div class="section-title">Frequency Response Plots — Magnitude & Phase</div>', unsafe_allow_html=True)
+# Plot 2: dB Magnitude
+fig2 = go.Figure()
+fig2.add_trace(go.Scatter(x=omega_plot, y=db_plot, name="dB",
+    line=dict(color=ac, width=2.5), hovertemplate="ω=%{x:.2f}<br>dB=%{y:.3f}<extra></extra>"))
+for xval in ref_x:
+    fig2.add_vline(x=xval, line_dash="dot", line_color="#f59e0b", line_width=1.5)
+# Add dB reference lines
+if show_db_minus1:
+    fig2.add_hline(y=-1, line_dash="dash", line_color="#94a3b8", line_width=1)
+if show_db_minus3:
+    fig2.add_hline(y=-3, line_dash="dash", line_color="#f87171", line_width=1.5,
+        annotation_text="−3 dB", annotation_font_color="#f87171")
+if show_db_minus6:
+    fig2.add_hline(y=-6, line_dash="dash", line_color="#fbbf24", line_width=1)
+if show_db_minus10:
+    fig2.add_hline(y=-10, line_dash="dash", line_color="#60a5fa", line_width=1)
+if show_db_minus20:
+    fig2.add_hline(y=-20, line_dash="dash", line_color="#818cf8", line_width=1)
+fig2.update_layout(
+    title=f"{sname} {order_label} — Bode Plot (dB)",
+    xaxis_title="ω (rad/s)", yaxis_title="dB",
+    height=400, paper_bgcolor="#0a0f1e", plot_bgcolor="#0f172a",
+    font=dict(color="#e2e8f0"), xaxis_type=xtype, xaxis=dict(gridcolor="#1e293b"),
+    yaxis=dict(gridcolor="#1e293b"), hovermode="x unified"
+)
 
-# Add tabs for better mobile viewing
-tab_mag, tab_phase, tab_both = st.tabs(["📊 Magnitude Response", "🎯 Phase Response", "📈 All Plots"])
+# Plot 3: Phase Response
+fig3 = go.Figure()
+fig3.add_trace(go.Scatter(x=omega_plot, y=phase_plot, name="Phase",
+    line=dict(color="#f59e0b", width=2.5), hovertemplate="ω=%{x:.2f}<br>Phase=%{y:.1f}°<extra></extra>"))
+for xval in ref_x:
+    fig3.add_vline(x=xval, line_dash="dot", line_color="#f59e0b", line_width=1.5)
+fig3.add_hline(y=0, line_dash="dash", line_color="#64748b", line_width=1)
+fig3.update_layout(
+    title=f"{sname} {order_label} — Phase Response",
+    xaxis_title="ω (rad/s)", yaxis_title="Phase (°)",
+    height=400, paper_bgcolor="#0a0f1e", plot_bgcolor="#0f172a",
+    font=dict(color="#e2e8f0"), xaxis_type=xtype, xaxis=dict(gridcolor="#1e293b"),
+    yaxis=dict(gridcolor="#1e293b"), hovermode="x unified"
+)
 
-with tab_mag:
-    st.markdown("**Linear & dB Magnitude Response**")
-    
-    fig_mag = make_subplots(
-        rows=1, cols=2,
-        subplot_titles=(
-            f"{sname} {order_label} — Linear |H(jω)|",
-            f"{sname} {order_label} — Bode Plot (dB)"
-        ),
-        horizontal_spacing=0.12
-    )
-    
-    # Magnitude Linear Plot
-    if show_linear:
-        fig_mag.add_trace(go.Scatter(
-            x=omega_plot, y=mag_plot, name="|H(jω)|",
-            line=dict(color=ac, width=2.5),
-            hovertemplate="ω=%{x:.2f}<br>|H|=%{y:.5f}<extra></extra>"
-        ), row=1, col=1)
-    
-    # Magnitude dB Plot
-    if show_bode:
-        fig_mag.add_trace(go.Scatter(
-            x=omega_plot, y=db_plot, name="dB",
-            line=dict(color=ac, width=2.5),
-            hovertemplate="ω=%{x:.2f}<br>dB=%{y:.3f}<extra></extra>"
-        ), row=1, col=2)
-    
-    # Add dB reference lines
-    db_refs_to_show = []
-    if show_db_minus1:
-        db_refs_to_show.append((-1, "−1 dB", "#94a3b8"))
-    if show_db_minus3:
-        db_refs_to_show.append((-3, "−3 dB (half power)", "#f87171"))
-    if show_db_minus6:
-        db_refs_to_show.append((-6, "−6 dB", "#fbbf24"))
-    if show_db_minus10:
-        db_refs_to_show.append((-10, "−10 dB", "#60a5fa"))
-    if show_db_minus20:
-        db_refs_to_show.append((-20, "−20 dB", "#818cf8"))
-    
-    for db_val, label, color in db_refs_to_show:
-        fig_mag.add_hline(
-            y=db_val, line_dash="dash", line_color=color, line_width=1.2,
-            row=1, col=2,  # type: ignore
-            annotation_text=label, annotation_font_color=color, annotation_font_size=8
-        )
-    
-    # Add cutoff reference lines
-    for xval in ref_x:
-        fig_mag.add_vline(x=xval, line_dash="dot", line_color="#f59e0b",
-                          line_width=1.5, row=1, col=1)  # type: ignore
-        fig_mag.add_vline(x=xval, line_dash="dot", line_color="#f59e0b",
-                          line_width=1.5, row=1, col=2)  # type: ignore
-    
-    # -3dB on linear plot
-    fig_mag.add_hline(y=1/sqrt2, line_dash="dash", line_color="#f87171", line_width=1.2, row=1, col=1,  # type: ignore
-                      annotation_text="−3dB (0.707)", annotation_font_color="#f87171")
-    
-    fig_mag.update_layout(
-        height=450, paper_bgcolor="#0a0f1e", plot_bgcolor="#0f172a",
-        font=dict(color="#e2e8f0", family="Segoe UI"), showlegend=True,
-        legend=dict(bgcolor="#0f172a", bordercolor="#1e3a5f", borderwidth=1),
-        margin=dict(t=60, b=40, l=60, r=60)
-    )
-    fig_mag.update_xaxes(title_text="ω (rad/s)", type=xtype, gridcolor="#1e293b", 
-                        zerolinecolor="#1e3a5f", autorange=True, row=1, col=1)
-    fig_mag.update_xaxes(title_text="ω (rad/s)", type=xtype, gridcolor="#1e293b", 
-                        zerolinecolor="#1e3a5f", autorange=True, row=1, col=2)
-    fig_mag.update_yaxes(title_text="|H(jω)|", gridcolor="#1e293b", zerolinecolor="#1e3a5f", 
-                        autorange=True, row=1, col=1)
-    fig_mag.update_yaxes(title_text="dB", gridcolor="#1e293b", zerolinecolor="#1e3a5f", 
-                        autorange=True, row=1, col=2)
-    
-    config = {
-        "responsive": True, "displayModeBar": True, "displaylogo": False,
-        "modeBarButtonsToRemove": ["lasso2d", "select2d"],
-        "toImageButtonOptions": {"format": "png", "filename": f"{sname}_{order_label}_magnitude.png",
-                                 "height": 800, "width": 1200, "scale": 2}
-    }
-    st.plotly_chart(fig_mag, use_container_width=True, config=config)
+# Plot 4: dB vs Phase
+fig4 = go.Figure()
+fig4.add_trace(go.Scatter(x=phase_plot, y=db_plot, name="dB vs Phase",
+    line=dict(color=ac, width=2.5), hovertemplate="Phase=%{x:.1f}°<br>dB=%{y:.3f}<extra></extra>"))
+fig4.update_layout(
+    title=f"{sname} {order_label} — dB vs Phase (Nyquist-style)",
+    xaxis_title="Phase (°)", yaxis_title="dB",
+    height=400, paper_bgcolor="#0a0f1e", plot_bgcolor="#0f172a",
+    font=dict(color="#e2e8f0"), xaxis=dict(gridcolor="#1e293b"),
+    yaxis=dict(gridcolor="#1e293b"), hovermode="x unified"
+)
 
-with tab_phase:
-    st.markdown("**Phase Response & dB vs Phase**")
-    
-    fig_phase = make_subplots(
-        rows=1, cols=2,
-        subplot_titles=(
-            f"{sname} {order_label} — Phase Response",
-            f"{sname} {order_label} — dB vs Phase (Nyquist-style)"
-        ),
-        horizontal_spacing=0.12
-    )
-    
-    # Phase Plot
-    if show_phase:
-        fig_phase.add_trace(go.Scatter(
-            x=omega_plot, y=phase_plot, name="Phase",
-            line=dict(color="#f59e0b", width=2.5),
-            hovertemplate="ω=%{x:.2f}<br>Phase=%{y:.1f}°<extra></extra>"
-        ), row=1, col=1)
-    
-    # dB vs Phase
-    if show_nyquist:
-        fig_phase.add_trace(go.Scatter(
-            x=phase_plot, y=db_plot, name="dB vs Phase",
-            mode="lines", line=dict(color=ac, width=2.5),
-            hovertemplate="Phase=%{x:.1f}°<br>dB=%{y:.3f}<extra></extra>"
-        ), row=1, col=2)
-    
-    # Add reference lines
-    fig_phase.add_vline(x=ref_x[0] if len(ref_x) > 0 else 1, line_dash="dot", line_color="#f59e0b",
-                       line_width=1.5, row=1, col=1)  # type: ignore
-    fig_phase.add_hline(y=0, line_dash="dash", line_color="#64748b", line_width=0.8, row=1, col=1)  # type: ignore
-    
-    fig_phase.update_layout(
-        height=450, paper_bgcolor="#0a0f1e", plot_bgcolor="#0f172a",
-        font=dict(color="#e2e8f0", family="Segoe UI"), showlegend=True,
-        legend=dict(bgcolor="#0f172a", bordercolor="#1e3a5f", borderwidth=1),
-        margin=dict(t=60, b=40, l=60, r=60)
-    )
-    fig_phase.update_xaxes(title_text="ω (rad/s)", type=xtype, gridcolor="#1e293b",
-                          zerolinecolor="#1e3a5f", autorange=True, row=1, col=1)
-    fig_phase.update_xaxes(title_text="Phase (degrees)", gridcolor="#1e293b", 
-                          zerolinecolor="#1e3a5f", autorange=True, row=1, col=2)
-    fig_phase.update_yaxes(title_text="Phase (°)", gridcolor="#1e293b", zerolinecolor="#1e3a5f",
-                          autorange=True, row=1, col=1)
-    fig_phase.update_yaxes(title_text="dB", gridcolor="#1e293b", zerolinecolor="#1e3a5f", 
-                          autorange=True, row=1, col=2)
-    
-    config = {
-        "responsive": True, "displayModeBar": True, "displaylogo": False,
-        "modeBarButtonsToRemove": ["lasso2d", "select2d"],
-        "toImageButtonOptions": {"format": "png", "filename": f"{sname}_{order_label}_phase.png",
-                                 "height": 800, "width": 1200, "scale": 2}
-    }
-    st.plotly_chart(fig_phase, use_container_width=True, config=config)
+# Display plots in responsive 2-column layout
+col1, col2 = st.columns(2)
+with col1:
+    st.plotly_chart(fig1, use_container_width=True, config=config)
+with col2:
+    st.plotly_chart(fig2, use_container_width=True, config=config)
 
-with tab_both:
-    st.markdown("**All Four Response Plots**")
-    st.info("💡 **Tip:** For better viewing on mobile, use the Magnitude Response or Phase Response tabs instead")
-    
-    config = {
-        "responsive": True, "displayModeBar": True, "displaylogo": False,
-        "modeBarButtonsToRemove": ["lasso2d", "select2d"],
-        "toImageButtonOptions": {"format": "png", "filename": f"{sname}_{order_label}_all.png",
-                                 "height": 1000, "width": 1400, "scale": 2}
-    }
-    st.plotly_chart(fig, use_container_width=True, config=config)
+col3, col4 = st.columns(2)
+with col3:
+    st.plotly_chart(fig3, use_container_width=True, config=config)
+with col4:
+    st.plotly_chart(fig4, use_container_width=True, config=config)
+
 st.markdown("---")
 
+# ===== TABLE =====
 st.markdown('<div class="section-title">Frequency Response Table (ω = 1 → 100)</div>', unsafe_allow_html=True)
 
 omega_table = np.arange(1, 102, 1, dtype=float)
@@ -636,25 +411,21 @@ st.download_button(
 
 st.markdown("---")
 
-with st.expander("📖 All Filter Formulas — Quick Reference"):
-    st.markdown("""
-    **Standard Butterworth Magnitude Formula:**
-    ```
-    |H(jω)| = 1 / √(1 + (ω/Wc)^(2n))     for LPF
-    |H(jω)| = (ω/Wc)^n / √(1 + (ω/Wc)^(2n))     for HPF
-    ```
-    
-    **Key dB Values (Always):**
-    - **−1 dB** = 0.891 magnitude (10% drop)
-    - **−3 dB** = 0.707 magnitude (50% power drop) ← STANDARD
-    - **−6 dB** = 0.501 magnitude (75% drop)
-    - **−10 dB** = 0.316 magnitude (90% drop)
-    - **−20 dB** = 0.1 magnitude (99% drop)
-    
-    **Phase behavior:**
-    - LPF: Phase shifts from 0° to −90°×n at high freq
-    - HPF: Phase shifts from +90°×n at low freq to 0°
-    - BPF: Phase ≈ 0° at center frequency, ±90° at edges
+# ===== FORMULAS =====
+with st.expander("📖 Filter Formulas & Key Concepts"):
+    st.markdown(f"""
+    **{sname} {order_label} — Transfer Function:**
+    - All derived from NLPF: H(s) = 1/(s+1)
+    - Magnitude: |H(jω)| = 1 / √(1 + (ω/Wc)^{2*order_n})
+    - dB: |H(jω)|_dB = 20 × log₁₀(|H(jω)|)
+    - Phase: ∠H(jω) in degrees
+
+    **Multi-dB Reference Levels (Always):**
+    - −1 dB = 0.891 magnitude
+    - −3 dB = 0.707 magnitude ← **STANDARD (half power)**
+    - −6 dB = 0.501 magnitude
+    - −10 dB = 0.316 magnitude
+    - −20 dB = 0.1 magnitude
     """)
 
 st.markdown("""
