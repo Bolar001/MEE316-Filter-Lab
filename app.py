@@ -13,7 +13,7 @@ import pandas as pd
 import streamlit as st
 import plotly.graph_objects as go
 
-st.set_page_config(page_title="MEE 316 · Filter Lab", page_icon="🎛️", layout="wide")
+st.set_page_config(page_title="EEE 316 · Filter Lab", page_icon="🎛️", layout="wide")
 
 # ── Custom CSS ────────────────────────────────────────────────────────────────
 st.markdown("""
